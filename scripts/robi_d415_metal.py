@@ -24,6 +24,9 @@ import numpy as np
 import yaml
 
 from synthrgbd.render.mujoco_renderer import camera_xml_attrs, render_gbuffer
+from synthrgbd.sensor import SensorModel
+from synthrgbd.sensor.d435 import build_d435
+from synthrgbd.sensor.fields import edge_band, incidence_deg
 
 _CV_TO_MJ = np.diag([1.0, -1.0, -1.0])
 ANGLE_BINS = np.arange(0, 91, 10)
@@ -61,21 +64,6 @@ def set_camera(model, data, T_world_cam_mm: np.ndarray):
     mujoco.mj_forward(model, data)
 
 
-def incidence_deg(depth: np.ndarray, normals: np.ndarray, K: np.ndarray) -> np.ndarray:
-    h, w = depth.shape
-    u, v = np.meshgrid(np.arange(w), np.arange(h))
-    ray = np.stack([(u - K[0, 2]) / K[0, 0], (v - K[1, 2]) / K[1, 1], np.ones_like(depth)], -1)
-    ray /= np.linalg.norm(ray, axis=-1, keepdims=True)
-    return np.degrees(np.arccos(np.clip(np.abs(np.sum(normals * ray, -1)), 0, 1)))
-
-
-def edge_band(instance: np.ndarray, width: int) -> np.ndarray:
-    """Pixels within `width` px of a change in instance id (incl. object/background)."""
-    k = np.ones((2 * width + 1, 2 * width + 1), np.uint8)
-    inst = (instance + 1).astype(np.float32)
-    return cv2.dilate(inst, k) != cv2.erode(inst, k)
-
-
 def bin_stats(err_mm, invalid, angle, bins):
     rows = []
     for lo, hi in zip(bins[:-1], bins[1:]):
@@ -89,9 +77,24 @@ def bin_stats(err_mm, invalid, angle, bins):
                          invalid_rate=float(invalid[m].mean()),
                          median_abs_err_mm=float(np.median(np.abs(e))) if e.size else np.nan,
                          mean_signed_err_mm=float(e.mean()) if e.size else np.nan,
+                         median_signed_err_mm=float(np.median(e)) if e.size else np.nan,
+                         mad_sigma_mm=float(1.4826 * np.median(np.abs(e - np.median(e)))) if e.size else np.nan,
                          frac_err_gt_2mm=float((np.abs(e) > 2).mean()) if e.size else np.nan,
                          frac_err_gt_5mm=float((np.abs(e) > 5).mean()) if e.size else np.nan))
     return rows
+
+
+def simulated_d415(baseline_m: float) -> SensorModel:
+    """Geometry + metal + edge effects from configs/camera_d435.yaml with the D415 baseline.
+
+    The ROBI meshes carry no material, so every rendered object pixel (material id -1) is metal.
+    Disparity noise is left out: the real errors are dominated by the GT alignment floor anyway.
+    """
+    full = build_d435([-1])
+    sim = SensorModel([e for e in full.effects if e[0] in ("stereo_shadow", "metal_dropout",
+                                                          "edge_artifacts", "metal_depth_error")])
+    sim.effects[0][2]["baseline_m"] = baseline_m
+    return sim
 
 
 def main():
@@ -102,6 +105,9 @@ def main():
     ap.add_argument("--min-vis", type=float, default=0.95)
     ap.add_argument("--edge-px", type=int, default=3)
     ap.add_argument("--out", default="results/robi")
+    ap.add_argument("--simulate", action="store_true",
+                    help="replace the real D415 depth by our sensor model applied to the rendered GT "
+                         "(holdout check of the calibrated tables)")
     args = ap.parse_args()
 
     root = Path(args.root)
@@ -115,6 +121,7 @@ def main():
     data = mujoco.MjData(model)
     geom_to_obj = {mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, n): int(n.split("_")[1]) for n in obj_poses}
 
+    sensor = simulated_d415(cam["baseline"] / 1000.0) if args.simulate else None
     views = (scene / "RealSense/list.txt").read_text().split()
     acc = {k: [] for k in ("err", "invalid", "angle", "edge", "z")}
     per_view, example = [], None
@@ -124,6 +131,8 @@ def main():
         g = render_gbuffer(model, data, "rs", W, H)
         real = cv2.imread(str(scene / f"RealSense/Depth/DEPTH_{view}.png"), cv2.IMREAD_ANYDEPTH)
         real_m = real.astype(np.float32) * cam["depth_unit"] / 1000.0
+        if sensor is not None:
+            real_m = sensor.apply(g, np.random.default_rng(int(view.split("_")[1])))
 
         good = np.zeros_like(g.instance, bool)
         for gid, oid in geom_to_obj.items():
@@ -134,7 +143,7 @@ def main():
         invalid = real_m == 0
         err_mm = (real_m - g.depth) * 1000.0
         edge = edge_band(g.instance, args.edge_px)
-        angle = incidence_deg(g.depth, g.normals, g.K)
+        angle = incidence_deg(g)
         for k, v in (("err", err_mm), ("invalid", invalid), ("angle", angle), ("edge", edge), ("z", g.depth)):
             acc[k].append(v[good])
         interior = good & ~edge
@@ -164,14 +173,15 @@ def main():
             p50=float(np.nanpercentile([r["median_signed_err_mm"] for r in per_view], 50)),
             p90=float(np.nanpercentile([r["median_signed_err_mm"] for r in per_view], 90))),
     )
-    tag = f"{args.object.lower()}_s{args.scene}"
+    tag = f"{args.object.lower()}_s{args.scene}" + ("_sim" if args.simulate else "")
     (out / f"{tag}_summary.json").write_text(json.dumps(summary, indent=2))
     (out / f"{tag}_per_view.json").write_text(json.dumps(per_view, indent=1))
     print(json.dumps({k: v for k, v in summary.items() if k != "by_angle_interior"}, indent=2))
-    print("angle  n_px    invalid  med|e|mm  signed  >5mm")
+    print("angle  n_px    invalid  med|e|mm  mean_signed  med_signed  mad_sigma  >5mm")
     for r in rows_int:
         print(f"{r['angle_lo']:2d}-{r['angle_hi']:2d} {r['n_px']:7d}  {r['invalid_rate']:.3f}   "
-              f"{r['median_abs_err_mm']:6.2f}   {r['mean_signed_err_mm']:6.2f}  {r['frac_err_gt_5mm']:.3f}")
+              f"{r['median_abs_err_mm']:6.2f}   {r['mean_signed_err_mm']:6.2f}  {r['median_signed_err_mm']:6.2f}  "
+              f"{r['mad_sigma_mm']:6.2f}  {r['frac_err_gt_5mm']:.3f}")
 
     # Figure: rates vs angle + example view
     _, view, real_m, gt, good = example

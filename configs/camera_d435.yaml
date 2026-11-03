@@ -47,7 +47,7 @@ stereo:
   subpixel_rms_px: {value: 0.080, range: [0.07, 0.14], source: "[BKM] 3e, [PRJ] Sec. 3, consistent with [R25] Table 3", verified: true}
   # Noise is spatially smooth ("bumps", "egg carton") and temporally consistent for a static scene,
   # not i.i.d. per pixel [K17 Sec. 4.2.6, 4.2.9; BKM 3e]. Correlation length not stated -> sensitivity parameter.
-  noise_correlation_px: {value: null, source: "", verified: false}
+  noise_correlation_px: {value: 2.0, range: [0, 4], source: "assumption (sensitivity parameter)", verified: false}
   # Minimum disparity quantisation step of the D4 ASIC [PRJ Sec. 3].
   disparity_step_px: {value: 0.032, source: "[PRJ] Sec. 3", verified: true}
   # Default depth unit 1 mm (16 bit) [PRJ Sec. 3, BKM 8a]. At 0.7 m one disparity step is ~0.74 mm, so both matter.
@@ -73,15 +73,32 @@ validation:
   plane_bias_at_2m_rel: {value: 0.0187, source: "[R25] Table 3 (overestimation, Sec. IV-A)", verified: true}
   plane_sd_up_to_1m_cm: {value: "< 0.5", source: "[R25] Sec. IV-A (all cameras)", verified: true}
 
-# Phenomenological parameters for effects without a datasheet value.
-# These are swept in a sensitivity analysis rather than claimed as measured.
-# No source here has measurements on metal/reflective parts; a further source is needed for aluminium dropouts.
-# Physically grounded functional form for signal-limited dropouts [K17 Sec. 4.2.8, R200]:
-#   r_expected ~ r_95 * sqrt(cos(theta_target) * albedo * cos(theta_FOV)^7)   (Lambertian, inverse square law)
-# Saturation is the other failure mode: dynamic range ~40x [K17 Sec. 4.2.5, R200]; "localized laser point saturation"
-# and laser light reflected back into the imagers degrade depth [BKM 3a, 13b]; glossy backgrounds are worse
-# than matte textured ones [BKM 12a].
+# Material and silhouette effects, measured on real D415 depth of metal parts.
+# [ROBI] Yang et al., ROBI: A Multi-View Dataset for Reflective Objects in Robotic Bin-Picking, IROS 2021,
+#        arXiv:2105.04112, CC BY-NC-SA 4.0. Measured with scripts/robi_d415_metal.py on object Zigzag
+#        (bent steel sheet part), scene 4, 125 views, z = 0.31-0.42 m, 1280x720, objects with visibility >= 0.95,
+#        CAD-rendered ground truth. Per-view median signed error 0.0-1.0 mm (p10-p90) -> alignment is consistent.
+# Caveats: D415 not D435 (same D4 ASIC, baseline 55 vs 50 mm, other imagers); steel not anodised aluminium;
+# bin not modelled. Mechanism (not used as numbers): two failure modes, saturation at head-on incidence
+# [K17 Sec. 4.2.5, BKM 3a, 13b] and too little returned light at grazing incidence [K17 Sec. 4.2.8].
 effects:
-  grazing_dropout: {angle_start_deg: null, angle_full_deg: null}
-  specular_dropout: {strength: null}
-  edge_artifacts: {width_px: null, flying_prob: null}
+  metal:
+    material_names: [alu]
+    # Bin centres of the incidence-angle classes (interior pixels, 3 px silhouette band excluded).
+    angle_deg: [5, 15, 25, 35, 45, 55, 65, 75, 85]
+    dropout_rate: [0.160, 0.091, 0.113, 0.141, 0.134, 0.190, 0.314, 0.458, 0.602]
+    # Median signed error real - GT (positive = depth overestimated).
+    bias_mm: [-0.09, 0.28, 0.36, 0.52, 0.64, 1.07, 1.85, 2.17, 0.38]
+    # Robust spread (1.4826 * MAD) in excess of the best-angle floor of 1.32 mm, sqrt(s^2 - 1.32^2).
+    # The floor contains GT alignment error (~0.8 mm ICP residual reported by [ROBI]) and base stereo
+    # noise, which is modelled separately by disparity_noise; not subtracting it would double count.
+    sigma_mm: [0.18, 0.0, 0.67, 1.05, 1.29, 1.72, 2.63, 3.82, 5.97]
+    source: "measured on [ROBI] Zigzag scene 4, results/robi/zigzag_s4_summary.json"
+    # Dropouts and errors come in blobs, not single pixels; blob size not measured yet.
+    corr_px: {value: 3.0, range: [0, 6], source: "assumption (sensitivity parameter)", verified: false}
+  edges:
+    # Band definition used for the measurement (instance change within 3 px).
+    width_px: {value: 3, source: "measurement definition in scripts/robi_d415_metal.py", verified: true}
+    p_drop: {value: 0.280, source: "[ROBI] Zigzag S4, invalid rate in silhouette band", verified: true}
+    # Valid band pixels with |err| > 5 mm (11.2 %) as a fraction of all band pixels: 0.112 * (1 - 0.28).
+    p_fly: {value: 0.081, source: "[ROBI] Zigzag S4, derived", verified: true}

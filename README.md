@@ -21,7 +21,19 @@ MuJoCo's default OpenGL backend is used.
 
 ```bash
 python scripts/probe_render.py   # renders the probe scene to figures/probe.png
+python scripts/demo_sensor.py    # ideal vs simulated D435 depth, one panel per effect
 pytest                           # unit tests
+```
+
+### Calibration on real metal parts (ROBI)
+
+The metal and edge effects are calibrated on real RealSense D415 depth of metal parts from
+ROBI (Yang et al., IROS 2021, CC BY-NC-SA 4.0). The fetch script pulls only one scene
+(~60 MB) out of the 3.7 GB archive via HTTP range requests.
+
+```bash
+python scripts/robi_fetch.py --object Zigzag --scene 4
+python scripts/robi_d415_metal.py --object Zigzag --scene 4   # ~10 min, writes results/robi/
 ```
 
 ## Layout
