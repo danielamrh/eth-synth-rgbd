@@ -15,8 +15,28 @@ from synthrgbd.gbuffer import GBuffer
 _MJ_TO_CV = np.diag([1.0, -1.0, -1.0])
 
 
+def camera_xml_attrs(K: np.ndarray, width: int, height: int) -> str:
+    """MJCF camera attributes reproducing pinhole intrinsics K (fx, fy, cx, cy in pixels).
+
+    MuJoCo's principalpixel is the offset of the image centre from the principal point,
+    with both axes measured so that cx = (W-1)/2 - px and cy = (H-1)/2 - py
+    (checked in tests/test_render.py). sensorsize only sets the length unit.
+    """
+    px = (width - 1) / 2 - K[0, 2]
+    py = (height - 1) / 2 - K[1, 2]
+    return (f'resolution="{width} {height}" sensorsize="{width * 1e-5} {height * 1e-5}" '
+            f'focalpixel="{K[0, 0]} {K[1, 1]}" principalpixel="{px} {py}"')
+
+
 def intrinsics(model: mujoco.MjModel, cam_id: int, width: int, height: int) -> np.ndarray:
-    """Pinhole intrinsics from MuJoCo's vertical field of view (square pixels)."""
+    """Pinhole intrinsics of a MuJoCo camera at the given render size."""
+    sensor = model.cam_sensorsize[cam_id]
+    if sensor[0] > 0:  # explicit intrinsics (camera_xml_attrs)
+        fx_l, fy_l, px_l, py_l = model.cam_intrinsic[cam_id]
+        sx, sy = width / sensor[0], height / sensor[1]
+        return np.array([[fx_l * sx, 0, (width - 1) / 2 - px_l * sx],
+                         [0, fy_l * sy, (height - 1) / 2 - py_l * sy], [0, 0, 1]])
+    # fovy only: square pixels, centred principal point
     fy = 0.5 * height / np.tan(np.deg2rad(model.cam_fovy[cam_id]) / 2)
     return np.array([[fy, 0, (width - 1) / 2], [0, fy, (height - 1) / 2], [0, 0, 1]])
 
