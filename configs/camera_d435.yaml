@@ -4,39 +4,62 @@
 # [R25] Rustler, Volprecht, Hoffmann. Empirical Comparison of Four Stereoscopic Depth Sensing
 #       Cameras for Robotics Applications. IEEE Access 13:67564-67577, 2025.
 #       doi:10.1109/ACCESS.2025.3560810 (arXiv:2501.07421). Data: https://rustlluk.github.io/rgbd-comparison
+# [DS]  Intel RealSense D400 Series Product Family Datasheet, Rev. 019, October 2024.
+#       https://realsenseai.com/wp-content/uploads/2024/10/Intel-RealSense-D400-Series-Datasheet-October-2024.pdf
 # Choice rationale [R25, Sec. IV-C, V]: D435 recommended for table-top object perception up to ~1 m;
 # D455 worse on complex shapes below 150 cm (attributed to its larger baseline, Sec. IV-B).
-name: Intel RealSense D435
+name: Intel RealSense D435   # depth module D430 [DS Table 3-49]
 
 image:
-  # Depth stream setting used in [R25] for their D435 recordings (default settings, no post-processing).
+  # Depth stream setting used in [R25] for their D435 recordings; listed depth mode in [DS Sec. 4].
   width: {value: 848, source: "[R25] Table 2", verified: true}
   height: {value: 480, source: "[R25] Table 2", verified: true}
-  # Manufacturer-stated depth FOV as quoted in [R25]. Nominal values; per-unit intrinsics differ.
-  # NOTE: 87x58 deg at 848x480 does not give exactly square pixels; check against Intel datasheet.
-  hfov_deg: {value: 87.0, source: "[R25] Table 1 (manufacturer)", verified: true}
-  vfov_deg: {value: 58.0, source: "[R25] Table 1 (manufacturer)", verified: true}
+
+intrinsics:
+  # Derived, not stated: D430 imager OV9282, 1280x800 active pixels, HFOV 90 +/- 1 deg,
+  # VFOV 64 +/- 1 deg [DS Table 3-13] -> fx = 640 / tan(45 deg) = 640 px, fy = 400 / tan(32 deg) = 640 px
+  # (square pixels). Assumption: 848x480 is the HD 1280x720 mode scaled by 848/1280, so f = 424 px.
+  # Check: 720-row crop gives VFOV 58.7 deg, consistent with depth FOV HD V:58 [DS Table 3-49].
+  # HFOV tolerance +/- 1 deg gives f in [416.7, 431.5] px.
+  f_px: {value: 424.0, source: "derived from [DS] Table 3-13", verified: false}
+  # Stated depth FOV HD 87 x 58 deg at 2 m [DS Table 3-49, R25 Table 1]. It is smaller than the imager
+  # HFOV because of the left invalid band (overlap of both imagers, [DS Sec. 4.4-4.5]), not because of
+  # non-square pixels. The DS formula gives 89.3 deg at 2 m; table value 87 is within the stated
+  # ~ +/- 3 deg module tolerance [DS Table 3-49 note 3].
+  depth_hfov_deg: {value: 87.0, source: "[DS] Table 3-49", verified: true}
+  depth_vfov_deg: {value: 58.0, source: "[DS] Table 3-49", verified: true}
 
 stereo:
-  # Not given in [R25]; take from the Intel D400 series datasheet.
-  baseline_m: {value: null, source: "", verified: false}
-  subpixel_px: {value: null, source: "", verified: false}   # disparity RMS / quantisation step
+  baseline_m: {value: 0.050, source: "[DS] Table 3-49 (D435 camera)", verified: true}
+  # Left imager is the matching reference; left band of width B*f/Z pixels has no depth [DS Sec. 4.5].
+  invalid_band: {side: left, source: "[DS] Sec. 4.5", verified: true}
+  # Not in [DS]. Back-calculated from [R25] Table 3 (SD 0.75 % at 2 m) with sigma_d = sigma_z * f * B / z^2:
+  # 0.015 * 424 * 0.05 / 4 = 0.080 px. To verify against Intel's stereo tuning white paper and by fitting
+  # all [R25] D435 plane recordings (60-400 cm).
+  subpixel_rms_px: {value: 0.080, source: "back-calculated from [R25] Table 3", verified: false}
 
 range:
-  # "Ideal range" stated by the manufacturer, quoted in [R25] Table 1.
-  min_z_m: {value: 0.3, source: "[R25] Table 1 (manufacturer)", verified: true}
-  max_z_m: {value: 3.0, source: "[R25] Table 1 (manufacturer)", verified: true}
+  # Hard limit: no depth closer than Min-Z at 848x480 [DS Table 4-11].
+  min_z_m: {value: 0.195, source: "[DS] Table 4-11 (848x480)", verified: true}
+  # No hard maximum in [DS]; error grows with z^2. "Ideal range" 0.3-3 m [R25 Table 1, manufacturer].
+  ideal_min_z_m: {value: 0.3, source: "[R25] Table 1 (manufacturer)", verified: true}
+  ideal_max_z_m: {value: 3.0, source: "[R25] Table 1 (manufacturer)", verified: true}
 
-# Measured reference values for validating the noise model (not used as model inputs).
+# Reference values for validating the noise model (not used as model inputs).
 validation:
+  # Factory spec, <= 2 m, 80 % ROI, HD resolution [DS Table 4-14].
+  spec_z_accuracy_rel: {value: 0.02, source: "[DS] Table 4-14 (+/-)", verified: true}
+  spec_rms_spatial_noise_rel: {value: 0.02, source: "[DS] Table 4-14 (<=)", verified: true}
+  spec_temporal_noise_rel: {value: 0.01, source: "[DS] Table 4-14 (<=)", verified: true}
+  spec_fill_rate: {value: 0.99, source: "[DS] Table 4-14 (>=)", verified: true}
+  # Measured on a plane [R25].
   plane_sd_at_2m_rel: {value: 0.0075, source: "[R25] Table 3", verified: true}
   plane_bias_at_2m_rel: {value: 0.0187, source: "[R25] Table 3 (overestimation, Sec. IV-A)", verified: true}
   plane_sd_up_to_1m_cm: {value: "< 0.5", source: "[R25] Sec. IV-A (all cameras)", verified: true}
-  # TODO: fit sigma_z(z) on the public D435 plane recordings (60-400 cm) instead of reading plots.
 
 # Phenomenological parameters for effects without a datasheet value.
 # These are swept in a sensitivity analysis rather than claimed as measured.
-# [R25] contains no metal/reflective parts; a second source is needed for aluminium dropouts.
+# Neither [R25] nor [DS] covers metal/reflective parts; a further source is needed for aluminium dropouts.
 effects:
   grazing_dropout: {angle_start_deg: null, angle_full_deg: null}
   specular_dropout: {strength: null}
