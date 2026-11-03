@@ -6,6 +6,12 @@
 #       doi:10.1109/ACCESS.2025.3560810 (arXiv:2501.07421). Data: https://rustlluk.github.io/rgbd-comparison
 # [DS]  Intel RealSense D400 Series Product Family Datasheet, Rev. 019, October 2024.
 #       https://realsenseai.com/wp-content/uploads/2024/10/Intel-RealSense-D400-Series-Datasheet-October-2024.pdf
+# [BKM] Grunnet-Jepsen, Sweetser, Woodfill. Best-Known-Methods for Tuning Intel RealSense D400 Depth Cameras
+#       for Best Performance, Rev 1.9. https://www.realsenseai.com/wp-content/uploads/2019/11/BKMs_Tuning_RealSense_D4xx_Cam.pdf
+# [PRJ] Grunnet-Jepsen, Sweetser, Winer, Takagi, Woodfill. Projectors for Intel RealSense Depth Cameras D4xx, Rev 1.0.
+#       https://realsenseai.com/wp-content/uploads/2019/03/WhitePaper_on_Projectors_for_RealSense_D4xx_1.0.pdf
+# [K17] Keselman, Woodfill, Grunnet-Jepsen, Bhowmik. Intel RealSense Stereoscopic Depth Cameras. CVPR Workshops 2017,
+#       arXiv:1705.05548. Measurements are for the R200; D400 stated to follow the same principles (Sec. 5).
 # Choice rationale [R25, Sec. IV-C, V]: D435 recommended for table-top object perception up to ~1 m;
 # D455 worse on complex shapes below 150 cm (attributed to its larger baseline, Sec. IV-B).
 name: Intel RealSense D435   # depth module D430 [DS Table 3-49]
@@ -21,7 +27,8 @@ intrinsics:
   # (square pixels). Assumption: 848x480 is the HD 1280x720 mode scaled by 848/1280, so f = 424 px.
   # Check: 720-row crop gives VFOV 58.7 deg, consistent with depth FOV HD V:58 [DS Table 3-49].
   # HFOV tolerance +/- 1 deg gives f in [416.7, 431.5] px.
-  f_px: {value: 424.0, source: "derived from [DS] Table 3-13", verified: false}
+  # Confirmed by [BKM] 3e: f = 0.5 * Xres / tan(HFOV/2) with HFOV = 90 deg, Xres = 848 for the D435.
+  f_px: {value: 424.0, source: "derived from [DS] Table 3-13, formula and values in [BKM] 3e", verified: true}
   # Stated depth FOV HD 87 x 58 deg at 2 m [DS Table 3-49, R25 Table 1]. It is smaller than the imager
   # HFOV because of the left invalid band (overlap of both imagers, [DS Sec. 4.4-4.5]), not because of
   # non-square pixels. The DS formula gives 89.3 deg at 2 m; table value 87 is within the stated
@@ -33,13 +40,22 @@ stereo:
   baseline_m: {value: 0.050, source: "[DS] Table 3-49 (D435 camera)", verified: true}
   # Left imager is the matching reference; left band of width B*f/Z pixels has no depth [DS Sec. 4.5].
   invalid_band: {side: left, source: "[DS] Sec. 4.5", verified: true}
-  # Not in [DS]. Back-calculated from [R25] Table 3 (SD 0.75 % at 2 m) with sigma_d = sigma_z * f * B / z^2:
-  # 0.015 * 424 * 0.05 / 4 = 0.080 px. To verify against Intel's stereo tuning white paper and by fitting
-  # all [R25] D435 plane recordings (60-400 cm).
-  subpixel_rms_px: {value: 0.080, source: "back-calculated from [R25] Table 3", verified: false}
+  # Disparity RMS error ("subpixel"), constant in disparity space -> sigma_z = z^2 * subpixel / (f * B) [K17 Eq. 2, BKM 3e].
+  # Intel: D435 with its projector normally 0.07-0.11 px [PRJ Sec. 3]; BKM uses 0.08 for D435 at 848x480 [BKM 3e].
+  # Independent check: back-calculated from [R25] Table 3 (SD 0.75 % at 2 m): 0.015 * 424 * 0.05 / 4 = 0.080 px.
+  # Single D435 on a white wall at 0.9 m measured 0.14 px [PRJ Fig. 13] -> use 0.07-0.14 as sensitivity range.
+  subpixel_rms_px: {value: 0.080, range: [0.07, 0.14], source: "[BKM] 3e, [PRJ] Sec. 3, consistent with [R25] Table 3", verified: true}
+  # Noise is spatially smooth ("bumps", "egg carton") and temporally consistent for a static scene,
+  # not i.i.d. per pixel [K17 Sec. 4.2.6, 4.2.9; BKM 3e]. Correlation length not stated -> sensitivity parameter.
+  noise_correlation_px: {value: null, source: "", verified: false}
+  # Minimum disparity quantisation step of the D4 ASIC [PRJ Sec. 3].
+  disparity_step_px: {value: 0.032, source: "[PRJ] Sec. 3", verified: true}
+  # Default depth unit 1 mm (16 bit) [PRJ Sec. 3, BKM 8a]. At 0.7 m one disparity step is ~0.74 mm, so both matter.
+  depth_unit_m: {value: 0.001, source: "[BKM] 8a, [PRJ] Sec. 3", verified: true}
 
 range:
   # Hard limit: no depth closer than Min-Z at 848x480 [DS Table 4-11].
+  # [BKM] 11c also says ~19.5 cm; its own formula f*B/126 gives 16.8 cm (BKM 5b). Use the datasheet value.
   min_z_m: {value: 0.195, source: "[DS] Table 4-11 (848x480)", verified: true}
   # No hard maximum in [DS]; error grows with z^2. "Ideal range" 0.3-3 m [R25 Table 1, manufacturer].
   ideal_min_z_m: {value: 0.3, source: "[R25] Table 1 (manufacturer)", verified: true}
@@ -59,7 +75,12 @@ validation:
 
 # Phenomenological parameters for effects without a datasheet value.
 # These are swept in a sensitivity analysis rather than claimed as measured.
-# Neither [R25] nor [DS] covers metal/reflective parts; a further source is needed for aluminium dropouts.
+# No source here has measurements on metal/reflective parts; a further source is needed for aluminium dropouts.
+# Physically grounded functional form for signal-limited dropouts [K17 Sec. 4.2.8, R200]:
+#   r_expected ~ r_95 * sqrt(cos(theta_target) * albedo * cos(theta_FOV)^7)   (Lambertian, inverse square law)
+# Saturation is the other failure mode: dynamic range ~40x [K17 Sec. 4.2.5, R200]; "localized laser point saturation"
+# and laser light reflected back into the imagers degrade depth [BKM 3a, 13b]; glossy backgrounds are worse
+# than matte textured ones [BKM 12a].
 effects:
   grazing_dropout: {angle_start_deg: null, angle_full_deg: null}
   specular_dropout: {strength: null}
