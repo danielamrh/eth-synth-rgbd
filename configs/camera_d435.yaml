@@ -1,0 +1,25 @@
+# Reference camera model. Every number needs a source; keep verified: false until checked.
+# Convention: depth in metres, 0.0 = invalid (same as RealSense SDK output).
+name: Intel RealSense D435   # final choice still open (D435 / D455 / D405 / Orbbec Gemini 335)
+
+image:
+  width: 640
+  height: 480
+  # Depth stream resolution actually used; native depth FOV/intrinsics from datasheet.
+  hfov_deg: {value: null, source: "", verified: false}
+  vfov_deg: {value: null, source: "", verified: false}
+
+stereo:
+  baseline_m: {value: null, source: "", verified: false}
+  subpixel_px: {value: null, source: "", verified: false}   # disparity RMS / quantisation step
+
+range:
+  min_z_m: {value: null, source: "", verified: false}
+  max_z_m: {value: null, source: "", verified: false}
+
+# Phenomenological parameters for effects without a datasheet value.
+# These are swept in a sensitivity analysis rather than claimed as measured.
+effects:
+  grazing_dropout: {angle_start_deg: null, angle_full_deg: null}
+  specular_dropout: {strength: null}
+  edge_artifacts: {width_px: null, flying_prob: null}

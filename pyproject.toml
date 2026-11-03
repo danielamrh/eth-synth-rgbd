@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "synthrgbd"
+version = "0.1.0"
+description = "Synthetic RGB-D of aluminium-profile parts with a realistic depth camera model"
+requires-python = ">=3.10"
+dependencies = [
+    "mujoco==3.17.0",
+    "numpy==2.4.6",
+    "PyYAML==6.0.3",
+    "opencv-python-headless==5.0.0.93",
+    "matplotlib==3.11.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==9.2.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
