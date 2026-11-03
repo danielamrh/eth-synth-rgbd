@@ -15,7 +15,7 @@ No single expected solution. They assess approach, technical reasoning and judge
 ## Decisions so far
 - Simulator: **MuJoCo** (3.17.0, venv in `.venv`, `pip install -e ".[dev]"`). `MUJOCO_GL=egl` only on Linux; on Windows the default backend is used (set in `render/mujoco_renderer.py`). MuJoCo has no ray tracing, so specular/missing-depth effects on aluminium must be modelled in our own sensor model.
 - Architecture: renderer -> `GBuffer` (rgb, z-depth, instance, material, normals, K, T_world_cam in OpenCV convention, aux) -> `SensorModel` (list of named effects `effect(depth, gbuf, params, rng) -> depth`, 0 = invalid, `.without(name)` for ablations) -> perception -> eval.
-- Camera: to be decided by Daniel (candidates: Intel RealSense D435/D455/D405, Orbbec Gemini 335). RealSense D435/D455 support page lists z-accuracy <=2 %, spatial noise (RMS) <=2 %, temporal noise <=1 %. Baseline, focal length and subpixel noise must be taken from the datasheet/papers and cited with source in `configs/camera_*.yaml`. Do not guess numbers.
+- Camera: **Intel RealSense D435** (decided 2026-11-03). Main source [R25] Rustler et al., IEEE Access 2025 (arXiv:2501.07421): recommends D435 for table-top object perception up to ~1 m; gives range, FOV, 848x480 setting, plane SD/bias (Table 3), public D435 recordings for validating the noise model. [R25] has no baseline/focal/subpixel values and no metal parts: baseline and subpixel come from the Intel datasheet, aluminium dropouts need a second source (e.g. Halmetschlager-Funek 2019, ROBI). All values with source in `configs/camera_d435.yaml`. Do not guess numbers.
 - Plan: (1) simple NumPy sensor model first (noise and quantisation in disparity space so sigma_z ~ z^2 follows, dropouts at grazing angles and on specular/anodised aluminium, edge flying/dropout at silhouettes, stereo shadow via second render at the right imager, min/max range); (2) optional upgrade: render stereo pair + dot pattern and run OpenCV SGBM; compare both models in the experiment if time allows.
 - Main experiment (proposal): simple grasp-point estimation from depth (plane fit + centroid), executed in MuJoCo, success rate for ideal depth vs sensor model vs single effects ablated (>= ~200 scenes per condition, fixed seeds, confidence intervals). Optional: small segmentation net trained on ideal vs modelled depth, tested on held-out noise parameters; also RGB vs depth vs RGB-D under lighting shifts (active IR depth is almost independent of visible light).
 - Reality check (optional): ROBI dataset (real reflective metal parts, Ensenso N35 + RealSense D415, ground-truth depth) if it is downloadable.
@@ -35,4 +35,5 @@ Tue/Wed: camera sources, scene + labels, depth pipeline. Thu: sensor model + val
 
 ## Open
 - GPU available on Daniel's laptop? (affects SAPIEN/Blender options)
-- Final camera choice.
+- D435 baseline and subpixel/disparity noise from Intel datasheet.
+- Nominal FOV 87x58 deg at 848x480 is not square-pixel; MuJoCo camera needs explicit intrinsics.

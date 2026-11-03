@@ -2,6 +2,7 @@
 __pycache__/
 *.egg-info/
 .pytest_cache/
+.vscode/
 # generated data and results (regenerate with scripts/)
 data/
 results/

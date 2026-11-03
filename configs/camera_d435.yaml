@@ -1,24 +1,42 @@
 # Reference camera model. Every number needs a source; keep verified: false until checked.
 # Convention: depth in metres, 0.0 = invalid (same as RealSense SDK output).
-name: Intel RealSense D435   # final choice still open (D435 / D455 / D405 / Orbbec Gemini 335)
+#
+# [R25] Rustler, Volprecht, Hoffmann. Empirical Comparison of Four Stereoscopic Depth Sensing
+#       Cameras for Robotics Applications. IEEE Access 13:67564-67577, 2025.
+#       doi:10.1109/ACCESS.2025.3560810 (arXiv:2501.07421). Data: https://rustlluk.github.io/rgbd-comparison
+# Choice rationale [R25, Sec. IV-C, V]: D435 recommended for table-top object perception up to ~1 m;
+# D455 worse on complex shapes below 150 cm (attributed to its larger baseline, Sec. IV-B).
+name: Intel RealSense D435
 
 image:
-  width: 640
-  height: 480
-  # Depth stream resolution actually used; native depth FOV/intrinsics from datasheet.
-  hfov_deg: {value: null, source: "", verified: false}
-  vfov_deg: {value: null, source: "", verified: false}
+  # Depth stream setting used in [R25] for their D435 recordings (default settings, no post-processing).
+  width: {value: 848, source: "[R25] Table 2", verified: true}
+  height: {value: 480, source: "[R25] Table 2", verified: true}
+  # Manufacturer-stated depth FOV as quoted in [R25]. Nominal values; per-unit intrinsics differ.
+  # NOTE: 87x58 deg at 848x480 does not give exactly square pixels; check against Intel datasheet.
+  hfov_deg: {value: 87.0, source: "[R25] Table 1 (manufacturer)", verified: true}
+  vfov_deg: {value: 58.0, source: "[R25] Table 1 (manufacturer)", verified: true}
 
 stereo:
+  # Not given in [R25]; take from the Intel D400 series datasheet.
   baseline_m: {value: null, source: "", verified: false}
   subpixel_px: {value: null, source: "", verified: false}   # disparity RMS / quantisation step
 
 range:
-  min_z_m: {value: null, source: "", verified: false}
-  max_z_m: {value: null, source: "", verified: false}
+  # "Ideal range" stated by the manufacturer, quoted in [R25] Table 1.
+  min_z_m: {value: 0.3, source: "[R25] Table 1 (manufacturer)", verified: true}
+  max_z_m: {value: 3.0, source: "[R25] Table 1 (manufacturer)", verified: true}
+
+# Measured reference values for validating the noise model (not used as model inputs).
+validation:
+  plane_sd_at_2m_rel: {value: 0.0075, source: "[R25] Table 3", verified: true}
+  plane_bias_at_2m_rel: {value: 0.0187, source: "[R25] Table 3 (overestimation, Sec. IV-A)", verified: true}
+  plane_sd_up_to_1m_cm: {value: "< 0.5", source: "[R25] Sec. IV-A (all cameras)", verified: true}
+  # TODO: fit sigma_z(z) on the public D435 plane recordings (60-400 cm) instead of reading plots.
 
 # Phenomenological parameters for effects without a datasheet value.
 # These are swept in a sensitivity analysis rather than claimed as measured.
+# [R25] contains no metal/reflective parts; a second source is needed for aluminium dropouts.
 effects:
   grazing_dropout: {angle_start_deg: null, angle_full_deg: null}
   specular_dropout: {strength: null}
