@@ -24,27 +24,33 @@ def load_config(path=DEFAULT_CONFIG) -> dict:
     return yaml.safe_load(Path(path).read_text())
 
 
-def build_d435(metal_material_ids, config_path=DEFAULT_CONFIG) -> SensorModel:
-    """D435 model; metal_material_ids are the renderer's material ids treated as metal."""
+def build_d435(metal_material_ids, config_path=DEFAULT_CONFIG, metal_scale: float = 1.0,
+               metal_corr_px: float | None = None) -> SensorModel:
+    """D435 model; metal_material_ids are the renderer's material ids treated as metal.
+
+    metal_scale multiplies the metal dropout rate, bias and spread; metal_corr_px overrides the
+    (unmeasured) blob size. Both are only for sensitivity runs.
+    """
     c = load_config(config_path)
     st, rg, ef = c["stereo"], c["range"], c["effects"]
     B = _v(st["baseline_m"])
     metal = ef["metal"]
     edge_px = _v(ef["edges"]["width_px"])
+    corr = _v(metal["corr_px"]) if metal_corr_px is None else metal_corr_px
     return SensorModel([
         ("stereo_shadow", stereo_shadow, {"baseline_m": B}),
         # No hard maximum range in the datasheet; far depth degrades via the z^2 noise law instead.
         ("range", range_limits, {"min_z_m": _v(rg["min_z_m"]), "max_z_m": _v(rg.get("max_z_m", float("inf")))}),
         ("metal_dropout", metal_dropout, {
             "material_ids": list(metal_material_ids), "angle_deg": metal["angle_deg"],
-            "dropout_rate": metal["dropout_rate"], "corr_px": _v(metal["corr_px"]), "edge_px": edge_px}),
+            "dropout_rate": metal["dropout_rate"], "corr_px": corr, "edge_px": edge_px, "scale": metal_scale}),
         ("edge_artifacts", edge_artifacts, {
             "width_px": edge_px, "p_drop": _v(ef["edges"]["p_drop"]),
             "p_fly": _v(ef["edges"]["p_fly"])}),
         ("metal_depth_error", metal_depth_error, {
             "material_ids": list(metal_material_ids), "angle_deg": metal["angle_deg"],
-            "bias_mm": metal["bias_mm"], "sigma_mm": metal["sigma_mm"], "corr_px": _v(metal["corr_px"]),
-            "edge_px": edge_px}),
+            "bias_mm": metal["bias_mm"], "sigma_mm": metal["sigma_mm"], "corr_px": corr,
+            "edge_px": edge_px, "scale": metal_scale}),
         ("disparity_noise", disparity_noise_and_quantisation, {
             "baseline_m": B, "sigma_px": _v(st["subpixel_rms_px"]), "corr_px": _v(st["noise_correlation_px"]),
             "step_px": _v(st["disparity_step_px"]), "depth_unit_m": _v(st["depth_unit_m"])}),

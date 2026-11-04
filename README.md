@@ -36,6 +36,20 @@ python scripts/robi_fetch.py --object Zigzag --scene 4
 python scripts/robi_d415_metal.py --object Zigzag --scene 4   # ~10 min, writes results/robi/
 ```
 
+### Grasp experiment
+
+Procedural cells (3-6 aluminium profiles and L-brackets, settled by physics, D435 on a randomised
+fixed mount). Each scene is rendered once; every sensor condition (ideal, full D435 model,
+D435 minus one effect, simpler noise models from the literature, metal sensitivity) is applied to
+the same G-buffer, a top-down grasp is planned from depth and executed with a parallel-jaw gripper
+in MuJoCo from the same settled state. Labels (part class, 6D pose, instance masks) and RGB-D of
+the first 20 scenes are stored in `results/grasp/<tag>/examples/`.
+
+```bash
+python scripts/grasp_experiment.py --tag main      # 300 scenes x 16 runs, ~25 min on 6 cores
+python scripts/grasp_report.py --tag main          # table, results/grasp/main/summary.json, figures/grasp_main.png
+```
+
 ## Layout
 
 | Path | Content |
@@ -43,7 +57,8 @@ python scripts/robi_d415_metal.py --object Zigzag --scene 4   # ~10 min, writes 
 | `configs/` | camera (every parameter with source), scene randomisation, experiment |
 | `src/synthrgbd/render/` | MuJoCo to `GBuffer` |
 | `src/synthrgbd/sensor/` | `SensorModel` pipeline and effects (`effect(depth, gbuf, params, rng) -> depth`, 0 = invalid) |
-| `src/synthrgbd/scene/` | MJCF scene construction |
-| `src/synthrgbd/labels/`, `perception/`, `eval/` | dataset writer, grasp estimation, evaluation (to come) |
+| `src/synthrgbd/scene/` | MJCF scene construction (`cell.py`: procedural cells, gripper, labels) |
+| `src/synthrgbd/perception/` | depth-based grasp planner |
+| `src/synthrgbd/eval/` | grasp execution in MuJoCo |
 | `scripts/` | one entry point per step |
 | `ai_log.md` | log of AI tool use for the report |

@@ -1,0 +1,31 @@
+# Grasp experiment: does the camera model change the outcome of a depth-based grasp?
+# Every scene is rendered once; all conditions apply their sensor model to the same G-buffer and
+# grasp from the same settled physical state, so conditions are compared pairwise per scene.
+seed: 2026
+n_scenes: 300          # test scenes (seeds seed + 0 ... seed + n_scenes - 1)
+dev_seed: 9000         # planner parameters were set on dev scenes only (ideal depth)
+n_dev_scenes: 50
+settle_s: 3.0
+save_images: 20        # store RGB-D + labels of the first N scenes as examples
+
+# Sensor conditions. "d435" is the full model; "no_<effect>" removes one effect (ablation).
+# Rivals from configs/noise_baselines.yaml. Sensitivity runs vary uncertain metal parameters.
+conditions:
+  - ideal
+  - d435
+  - no_stereo_shadow
+  - no_metal_dropout
+  - no_edge_artifacts
+  - no_metal_depth_error
+  - no_disparity_noise
+  - iid_gauss
+  - z2_gauss
+  - dexnet
+  - metal_x0.5
+  - metal_x2
+  - metal_corr0
+  - metal_corr6
+
+# Pipelines: "depth" clusters from depth only; "masks" uses ground-truth instance masks
+# (a perfect segmenter) and depth for geometry. Masks are run only on these conditions.
+mask_conditions: [ideal, d435]

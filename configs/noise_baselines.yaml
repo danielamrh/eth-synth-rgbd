@@ -1,0 +1,27 @@
+# Simpler depth noise models, used as rivals to the D435 model in the grasp experiment.
+# Levels 1 and 2 have the same amplitude as the D435 model at a reference depth, so a difference
+# to the full model comes from structure (where errors happen), not from noise amplitude.
+# Level 3 uses published parameters as they are (a widely used setting, not D435-specific).
+#
+# [K17]   Keselman et al., CVPRW 2017 (arXiv:1705.05548), Eq. 2: sigma_z = z^2 * sigma_d / (f * B).
+# [DN2]   Mahler et al., Dex-Net 2.0, RSS 2017 (arXiv:1703.09312), Sec. IV-A and Appendix A:
+#         y = alpha * y_hat + eps, alpha ~ Gamma(shape=1000, scale=0.001) (depth-proportional),
+#         eps = zero-mean Gaussian process noise, sigma = 0.005 m, kernel bandwidth l = sqrt(2) px,
+#         approximated in their code by upsampling uncorrelated noise (Sec. IV-B).
+iid_gauss:
+  # Level 1: constant sigma, i.i.d. per pixel. Amplitude = D435 sigma_z at z_ref:
+  # 0.5^2 * 0.08 / (424 * 0.05) = 0.94 mm (z_ref = middle of the sampled camera distances).
+  z_ref_m: 0.5
+  source: "amplitude from [K17] Eq. 2 with configs/camera_d435.yaml values"
+z2_gauss:
+  # Level 2: i.i.d. Gaussian with sigma_z = z^2 * sigma_d / (f B), no correlation, no dropouts.
+  source: "[K17] Eq. 2"
+dexnet:
+  # Level 3: Dex-Net 2.0 observation model.
+  gamma_shape: 1000.0
+  gamma_scale: 0.001
+  gp_sigma_m: 0.005
+  # A Gaussian process with RBF kernel exp(-r^2 / (2 l^2)) equals white noise blurred by a Gaussian
+  # of sigma l / sqrt(2) (convolving the blur with itself doubles its variance) -> 1.0 px for l = sqrt(2).
+  gp_bandwidth_px: 1.41421356
+  source: "[DN2] Appendix A"
