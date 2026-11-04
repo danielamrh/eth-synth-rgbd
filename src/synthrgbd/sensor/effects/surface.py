@@ -13,7 +13,12 @@ from synthrgbd.sensor.fields import correlated_noise, correlated_uniform, edge_b
 
 
 def _metal_mask(gbuf: GBuffer, params: dict) -> np.ndarray:
-    return np.isin(gbuf.material, params["material_ids"])
+    """Metal pixels outside the silhouette band: the tables were measured on interior pixels only,
+    and the band is handled by edge_artifacts (otherwise band pixels would be counted twice)."""
+    metal = np.isin(gbuf.material, params["material_ids"])
+    if params.get("edge_px", 0) > 0:
+        metal &= ~edge_band(gbuf.instance, params["edge_px"])
+    return metal
 
 
 def metal_dropout(depth: np.ndarray, gbuf: GBuffer, params: dict,

@@ -64,6 +64,19 @@ def test_metal_dropout_rate_follows_table_and_spares_other_materials():
     assert (out[:, 150:] == 0).mean() == pytest.approx(0.3, abs=0.03)
 
 
+def test_metal_effects_leave_silhouette_band_to_edge_artifacts():
+    """Tables are measured on interior pixels; applying them in the band would double count."""
+    z = np.full((100, 100), 0.5, np.float32)
+    inst = np.full((100, 100), -1, np.int32)
+    inst[20:80, 20:80] = 0
+    material = np.ones((100, 100), np.int32)
+    g = _gbuf(z, instance=inst, material=material)
+    p = {"material_ids": [1], "angle_deg": [0, 90], "dropout_rate": [1.0, 1.0], "corr_px": 0.0, "edge_px": 3}
+    out = metal_dropout(z, g, p, np.random.default_rng(6))
+    assert np.all(out[17:23, 30:70] == 0.5)        # band around the top silhouette untouched
+    assert np.all(out[30:70, 30:70] == 0.0)        # interior fully dropped (rate 1)
+
+
 def test_metal_depth_error_bias_and_spread():
     z = np.full((300, 300), 0.5, np.float32)
     material = np.ones((300, 300), np.int32)

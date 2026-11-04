@@ -26,6 +26,7 @@ import yaml
 from synthrgbd.render.mujoco_renderer import camera_xml_attrs, render_gbuffer
 from synthrgbd.sensor import SensorModel
 from synthrgbd.sensor.d435 import build_d435
+from synthrgbd.sensor.effects.stereo import stereo_shadow
 from synthrgbd.sensor.fields import edge_band, incidence_deg
 
 _CV_TO_MJ = np.diag([1.0, -1.0, -1.0])
@@ -125,6 +126,7 @@ def main():
     views = (scene / "RealSense/list.txt").read_text().split()
     acc = {k: [] for k in ("err", "invalid", "angle", "edge", "z")}
     per_view, example = [], None
+    n_shadow = n_good = 0
     for view in views:
         T, vis = load_view_json(scene / f"RealSense/Depth/DEPTH_{view}.json")
         set_camera(model, data, T)
@@ -138,6 +140,12 @@ def main():
         for gid, oid in geom_to_obj.items():
             if vis.get(oid, 0.0) >= args.min_vis:
                 good |= g.instance == gid
+        # Measure net of geometry: pixels our stereo_shadow predicts as hidden from the right imager
+        # are excluded, so the tables only describe dropouts beyond what the shadow effect produces.
+        shadow = (stereo_shadow(g.depth, g, {"baseline_m": cam["baseline"] / 1000.0}, None) == 0) & good
+        n_shadow += int(shadow.sum())
+        n_good += int(good.sum())
+        good &= ~shadow
         if not good.any():
             continue
         invalid = real_m == 0
@@ -162,6 +170,7 @@ def main():
     valid_int = interior & ~a["invalid"]
     summary = dict(
         object=args.object, scene=args.scene, n_views=len(per_view), min_visibility=args.min_vis,
+        excluded_predicted_shadow_frac=n_shadow / max(n_good, 1),
         z_range_m=[float(np.percentile(a["z"], 1)), float(np.percentile(a["z"], 99))],
         interior=dict(n_px=int(interior.sum()), invalid_rate=float(a["invalid"][interior].mean()),
                       median_abs_err_mm=float(np.median(np.abs(a["err"][valid_int]))),

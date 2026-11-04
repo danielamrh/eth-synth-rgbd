@@ -86,19 +86,22 @@ effects:
     material_names: [alu]
     # Bin centres of the incidence-angle classes (interior pixels, 3 px silhouette band excluded).
     angle_deg: [5, 15, 25, 35, 45, 55, 65, 75, 85]
-    dropout_rate: [0.160, 0.091, 0.113, 0.141, 0.134, 0.190, 0.314, 0.458, 0.602]
+    # Measured net of geometry: pixels that stereo_shadow predicts as hidden (0.4 % of object pixels)
+    # are excluded, so these rates add to the shadow effect instead of double counting it.
+    dropout_rate: [0.160, 0.091, 0.112, 0.141, 0.134, 0.190, 0.314, 0.456, 0.572]
     # Median signed error real - GT (positive = depth overestimated).
-    bias_mm: [-0.09, 0.28, 0.36, 0.52, 0.64, 1.07, 1.85, 2.17, 0.38]
+    bias_mm: [-0.09, 0.28, 0.36, 0.52, 0.64, 1.07, 1.85, 2.19, 1.21]
     # Robust spread (1.4826 * MAD) in excess of the best-angle floor of 1.32 mm, sqrt(s^2 - 1.32^2).
     # The floor contains GT alignment error (~0.8 mm ICP residual reported by [ROBI]) and base stereo
     # noise, which is modelled separately by disparity_noise; not subtracting it would double count.
-    sigma_mm: [0.18, 0.0, 0.67, 1.05, 1.29, 1.72, 2.63, 3.82, 5.97]
+    sigma_mm: [0.18, 0.0, 0.67, 1.05, 1.29, 1.72, 2.63, 3.82, 5.82]
     source: "measured on [ROBI] Zigzag scene 4, results/robi/zigzag_s4_summary.json"
     # Dropouts and errors come in blobs, not single pixels; blob size not measured yet.
     corr_px: {value: 3.0, range: [0, 6], source: "assumption (sensitivity parameter)", verified: false}
   edges:
     # Band definition used for the measurement (instance change within 3 px).
     width_px: {value: 3, source: "measurement definition in scripts/robi_d415_metal.py", verified: true}
-    p_drop: {value: 0.280, source: "[ROBI] Zigzag S4, invalid rate in silhouette band", verified: true}
-    # Valid band pixels with |err| > 5 mm (11.2 %) as a fraction of all band pixels: 0.112 * (1 - 0.28).
-    p_fly: {value: 0.081, source: "[ROBI] Zigzag S4, derived", verified: true}
+    # Net of predicted stereo shadow, like the metal table. Metal effects skip this band (no double counting).
+    p_drop: {value: 0.278, source: "[ROBI] Zigzag S4, invalid rate in silhouette band", verified: true}
+    # Valid band pixels with |err| > 5 mm (11.1 %) as a fraction of all band pixels: 0.111 * (1 - 0.278).
+    p_fly: {value: 0.080, source: "[ROBI] Zigzag S4, derived", verified: true}
