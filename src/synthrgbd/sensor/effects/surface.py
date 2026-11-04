@@ -9,7 +9,8 @@ import cv2
 import numpy as np
 
 from synthrgbd.gbuffer import GBuffer
-from synthrgbd.sensor.fields import correlated_noise, correlated_uniform, edge_band, incidence_deg
+from synthrgbd.sensor.fields import (correlated_noise, correlated_uniform, edge_band, incidence_deg,
+                                    local_depth_step)
 
 
 def _metal_mask(gbuf: GBuffer, params: dict) -> np.ndarray:
@@ -64,16 +65,25 @@ def edge_artifacts(depth: np.ndarray, gbuf: GBuffer, params: dict,
 
     In the band, a pixel is dropped with p_drop; of the remaining, a fraction p_fly gets a depth
     mixed between the nearest foreground and background depth in its neighbourhood.
+    With params["by_step"] = {"step_mm": bin edges, "p_drop": per bin, "p_drop_background": p},
+    p_drop depends on the local depth step of the ideal geometry (touching parts drop little,
+    occlusion boundaries a lot; measured with scripts/robi_edge_steps.py).
     """
     band = edge_band(gbuf.instance, params["width_px"]) & (depth > 0)
     if not band.any():
         return depth
+    p_drop = params["p_drop"]
+    if params.get("by_step"):
+        t = params["by_step"]
+        step, next_to_bg = local_depth_step(gbuf.depth, params["width_px"])
+        p_drop = np.asarray(t["p_drop"])[np.digitize(step * 1000, t["step_mm"])]
+        p_drop = np.where(next_to_bg, t["p_drop_background"], p_drop)
     k = np.ones((2 * params["width_px"] + 1,) * 2, np.uint8)
     near = cv2.erode(np.where(depth > 0, depth, np.inf).astype(np.float32), k)
     far = cv2.dilate(depth.astype(np.float32), k)
     r = rng.random(depth.shape)
-    drop = band & (r < params["p_drop"])
-    fly = band & ~drop & (r < params["p_drop"] + params["p_fly"]) & np.isfinite(near)
+    drop = band & (r < p_drop)
+    fly = band & ~drop & (r < p_drop + params["p_fly"]) & np.isfinite(near)
     out = depth.copy()
     mix = rng.random(depth.shape).astype(np.float32)
     out[fly] = near[fly] + mix[fly] * (far[fly] - near[fly])

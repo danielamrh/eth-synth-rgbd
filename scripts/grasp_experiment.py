@@ -31,15 +31,21 @@ def make_sensors(metal_ids):
     s.update(build_baselines())
     s["metal_x0.5"] = build_d435(metal_ids, metal_scale=0.5)
     s["metal_x2"] = build_d435(metal_ids, metal_scale=2.0)
-    s["metal_corr0"] = build_d435(metal_ids, metal_corr_px=0.0)
-    s["metal_corr6"] = build_d435(metal_ids, metal_corr_px=6.0)
     return s
 
 
-def _ref_grasp(gbuf, mask, seed):
+def sensor_for(name, sensors, metal_ids):
+    """Fixed conditions from make_sensors, plus metal_corr<px> for any blob size."""
+    if name.startswith("metal_corr"):
+        from synthrgbd.sensor.d435 import build_d435
+        return build_d435(metal_ids, metal_corr_px=float(name[len("metal_corr"):]))
+    return sensors[name]
+
+
+def _ref_grasp(gbuf, mask, seed, params):
     """Grasp the planner makes for one part from ideal depth and its true mask (error reference)."""
     from synthrgbd.perception.grasp_planner import plan_grasp
-    g, _ = plan_grasp(gbuf.depth, gbuf, np.random.default_rng(seed), instance_masks=[mask])
+    g, _ = plan_grasp(gbuf.depth, gbuf, np.random.default_rng(seed), instance_masks=[mask], params=params)
     return g
 
 
@@ -52,12 +58,13 @@ def _angle_diff(a, b):
 def run_scene(args):
     seed, cfg, conditions, mask_conditions, save_dir = args
     from synthrgbd.eval.grasp_trial import execute_grasp, settled_state
-    from synthrgbd.perception.grasp_planner import plan_grasp
+    from synthrgbd.perception.grasp_planner import PARAMS, plan_grasp
     from synthrgbd.render.mujoco_renderer import render_gbuffer
     from synthrgbd.scene import cell
     from synthrgbd.scene.builder import D435_H, D435_W
 
     t0 = time.time()
+    params = {**PARAMS, **(cfg.get("planner") or {})}
     scene = cell.sample_scene(np.random.default_rng(seed))
     model, data = cell.build(scene)
     speed = cell.settle(model, data, cfg["settle_s"])
@@ -80,11 +87,11 @@ def run_scene(args):
     rows, cache, ref_cache = [], {}, {}
     jobs = [("depth", c) for c in conditions] + [("masks", c) for c in mask_conditions]
     for pipeline, cond in jobs:
-        sensor = sensors[cond]
+        sensor = sensor_for(cond, sensors, metal_ids)
         # Same noise seed for every condition of a scene -> paired comparison.
         depth = gbuf.depth.copy() if sensor is None else sensor.apply(gbuf, np.random.default_rng([seed, 1]))
         grasp, info = plan_grasp(depth, gbuf, np.random.default_rng([seed, 2]),
-                                 instance_masks=masks if pipeline == "masks" else None)
+                                 instance_masks=masks if pipeline == "masks" else None, params=params)
         row = {"seed": seed, "pipeline": pipeline, "condition": cond, "n_parts": len(scene["parts"]),
                "settle_speed": speed, "valid_frac_parts": float((depth[part_of_pixel >= 0] > 0).mean()),
                "plan": info["reason"]}
@@ -105,7 +112,7 @@ def run_scene(args):
         row["cluster_purity"] = float((ids == target).mean()) if len(ids) else 0.0
         if target >= 0:
             if target not in ref_cache:
-                ref_cache[target] = _ref_grasp(gbuf, masks[target], seed)
+                ref_cache[target] = _ref_grasp(gbuf, masks[target], seed, params)
             ref = ref_cache[target]
             if ref is not None:
                 row["err"] = {"xy_mm": float(np.hypot(grasp.x - ref.x, grasp.y - ref.y) * 1000),
@@ -123,8 +130,11 @@ def main():
     ap.add_argument("--tag", default="main")
     ap.add_argument("--dev", action="store_true", help="dev scenes, ideal depth only")
     ap.add_argument("--workers", type=int, default=6)
+    ap.add_argument("--clearance", type=float, help="override planner clearance per side [m]")
     a = ap.parse_args()
     cfg = yaml.safe_load(Path(a.config).read_text())
+    if a.clearance is not None:
+        cfg["planner"] = {**(cfg.get("planner") or {}), "clearance": a.clearance}
 
     if a.dev:
         seeds = [cfg["dev_seed"] + i for i in range(a.n or cfg["n_dev_scenes"])]

@@ -8,6 +8,10 @@ n_dev_scenes: 50
 settle_s: 3.0
 save_images: 20        # store RGB-D + labels of the first N scenes as examples
 
+# Planner overrides (defaults in src/synthrgbd/perception/grasp_planner.py). clearance = extra jaw
+# opening per side; it sets how much grasp-centre error the generic gripper tolerates.
+planner: {}
+
 # Sensor conditions. "d435" is the full model; "no_<effect>" removes one effect (ablation).
 # Rivals from configs/noise_baselines.yaml. Sensitivity runs vary uncertain metal parameters.
 conditions:
@@ -23,8 +27,9 @@ conditions:
   - dexnet
   - metal_x0.5
   - metal_x2
-  - metal_corr0
-  - metal_corr6
+  - metal_corr0      # salt-and-pepper dropouts (contrast; ruled out by the ROBI measurement)
+  - metal_corr3.3    # measured range of the blob size, see configs/camera_d435.yaml
+  - metal_corr6.1
 
 # Pipelines: "depth" clusters from depth only; "masks" uses ground-truth instance masks
 # (a perfect segmenter) and depth for geometry. Masks are run only on these conditions.

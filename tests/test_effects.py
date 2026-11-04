@@ -4,7 +4,7 @@ import pytest
 from synthrgbd.gbuffer import GBuffer
 from synthrgbd.sensor.effects.stereo import disparity_noise_and_quantisation, stereo_shadow
 from synthrgbd.sensor.effects.surface import edge_artifacts, metal_depth_error, metal_dropout
-from synthrgbd.sensor.fields import correlated_uniform
+from synthrgbd.sensor.fields import correlated_uniform, edge_band
 
 F, B = 424.0, 0.05
 
@@ -102,3 +102,20 @@ def test_edge_artifacts_only_touch_silhouette_band():
     assert changed[band].mean() == pytest.approx(0.5, abs=0.07)
     flying = changed & (out > 0)
     assert np.all((out[flying] >= 0.5) & (out[flying] <= 1.0))
+
+
+def test_edge_dropout_depends_on_depth_step():
+    """Touching parts (2 mm step) drop rarely, an occlusion boundary (50 mm step) often."""
+    z = np.full((400, 400), 0.50, np.float32)
+    inst = np.zeros((400, 400), np.int32)
+    inst[:, 100:200], z[:, 100:200] = 1, 0.498     # small step to instance 0
+    inst[:, 300:], z[:, 300:] = 2, 0.45            # large step
+    t = {"step_mm": [5, 15], "p_drop": [0.05, 0.2, 0.6], "p_drop_background": 0.3}
+    p = {"width_px": 3, "p_drop": 0.3, "p_fly": 0.0, "by_step": t}
+    out = edge_artifacts(z, _gbuf(z, inst), p, np.random.default_rng(0))
+    band = edge_band(inst, 3)
+    cols = np.arange(400)[None, :].repeat(400, 0)
+    small = (out[band & (abs(cols - 100) < 10)] == 0).mean()
+    large = (out[band & (abs(cols - 300) < 10)] == 0).mean()
+    assert small == pytest.approx(0.05, abs=0.02)
+    assert large == pytest.approx(0.6, abs=0.03)

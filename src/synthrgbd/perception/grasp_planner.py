@@ -95,17 +95,22 @@ def clusters_from_masks(height, instance_masks: list[np.ndarray], p: dict) -> li
 
 
 def plan_grasp(depth: np.ndarray, gbuf: GBuffer, rng: np.random.Generator,
-               instance_masks: list[np.ndarray] | None = None, params: dict = PARAMS):
+               instance_masks: list[np.ndarray] | None = None, params: dict = PARAMS,
+               plane: tuple[np.ndarray, float] | None = None, min_points: int = 1000):
     """Returns (Grasp or None, info dict). info explains a failure to plan; on success
-    info["region"] is the pixel mask of the chosen cluster (used only for evaluation)."""
+    info["region"] is the pixel mask of the chosen cluster (used only for evaluation).
+    plane = (n, d) skips the RANSAC table fit (used where the support surface is known)."""
     p = params
     P = backproject(depth, gbuf)
     valid = np.isfinite(P[..., 2])
     pts = P[valid]
-    if len(pts) < 1000:
+    if len(pts) < min_points:
         return None, {"reason": "too_few_points"}
-    sub = pts[rng.choice(len(pts), min(len(pts), 20000), replace=False)]
-    n, d = fit_table(sub, rng, p["ransac_iters"], p["ransac_tol"])
+    if plane is None:
+        sub = pts[rng.choice(len(pts), min(len(pts), 20000), replace=False)]
+        n, d = fit_table(sub, rng, p["ransac_iters"], p["ransac_tol"])
+    else:
+        n, d = plane
     height = np.full(depth.shape, np.nan)
     height[valid] = pts @ n + d
 

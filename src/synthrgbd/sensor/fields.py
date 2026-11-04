@@ -48,3 +48,19 @@ def incidence_deg(gbuf: GBuffer) -> np.ndarray:
     ray /= np.linalg.norm(ray, axis=-1, keepdims=True)
     cos = np.abs(np.sum(gbuf.normals * ray, axis=-1))
     return np.degrees(np.arccos(np.clip(cos, 0.0, 1.0)))
+
+
+def local_depth_step(depth: np.ndarray, width: int) -> tuple[np.ndarray, np.ndarray]:
+    """Depth step around each pixel and whether rendered geometry is missing nearby.
+
+    step = max - min of the valid (> 0) ideal depth in a (2 width + 1)^2 window, in metres. It separates
+    boundaries between touching parts (small step) from occlusion boundaries (large step).
+    next_to_bg marks pixels with a pixel without geometry (depth 0) in the window, whose step is unknown.
+    """
+    k = np.ones((2 * width + 1, 2 * width + 1), np.uint8)
+    valid = depth > 0
+    hi = cv2.dilate(np.where(valid, depth, 0).astype(np.float32), k)
+    lo = cv2.erode(np.where(valid, depth, np.inf).astype(np.float32), k)
+    next_to_bg = cv2.erode(valid.astype(np.uint8), k) == 0
+    step = np.where(np.isfinite(lo), hi - lo, 0.0)
+    return step, next_to_bg & valid

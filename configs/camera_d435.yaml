@@ -96,8 +96,14 @@ effects:
     # noise, which is modelled separately by disparity_noise; not subtracting it would double count.
     sigma_mm: [0.18, 0.0, 0.67, 1.05, 1.29, 1.72, 2.63, 3.82, 5.82]
     source: "measured on [ROBI] Zigzag scene 4, results/robi/zigzag_s4_summary.json"
-    # Dropouts and errors come in blobs, not single pixels; blob size not measured yet.
-    corr_px: {value: 3.0, range: [0, 6], source: "assumption (sensitivity parameter)", verified: false}
+    # Dropouts come in blobs, not single pixels. Measured with scripts/robi_blob_size.py: fit of
+    # P(invalid at offset r | invalid), r = 1..15 px, real vs metal_dropout on the same views.
+    # D415 (1280x720, f = 906 px): 9.2 px on S4, 7.0 px on S5. Conversion to the D435 at 848x480
+    # (f = 424 px) depends on what sets the blob size: surface patches (scale with f: 3.3-4.3 px)
+    # or the matching window (scale with resolution: 4.6-6.1 px). Value = middle of 3.3-6.1.
+    # Limitation: real holes are two-scale (many 3 px specks plus large patches); a single Gaussian
+    # blob size cannot match both, real P(r) decays more slowly than any simulated curve.
+    corr_px: {value: 4.5, range: [3.3, 6.1], source: "measured on [ROBI] Zigzag S4/S5, results/robi/zigzag_s*_blobs.json", verified: true}
   edges:
     # Band definition used for the measurement (instance change within 3 px).
     width_px: {value: 3, source: "measurement definition in scripts/robi_d415_metal.py", verified: true}
@@ -105,3 +111,16 @@ effects:
     p_drop: {value: 0.278, source: "[ROBI] Zigzag S4, invalid rate in silhouette band", verified: true}
     # Valid band pixels with |err| > 5 mm (11.1 %) as a fraction of all band pixels: 0.111 * (1 - 0.278).
     p_fly: {value: 0.080, source: "[ROBI] Zigzag S4, derived", verified: true}
+    # Edge dropout depends on the depth step across the boundary: touching parts (small step) drop
+    # little, occlusion boundaries a lot. Found with scripts/robi_grasp_check.py (constant p_drop let
+    # depth-only clustering separate touching parts that stay merged in real depth). Measured with
+    # scripts/robi_edge_steps.py on [ROBI] Zigzag S4, every 2nd view, band net of predicted shadow;
+    # step = max - min of ideal depth in a 7x7 window. Holdout S5: 0.050 0.079 0.106 0.206 0.369 0.449 0.361, bg 0.321.
+    # use_by_step false keeps the constant p_drop above (model used for the grasp results so far).
+    use_by_step: false
+    p_drop_by_step:
+      step_mm: [2.5, 5, 10, 15, 25, 40]          # bin edges; first bin 0-2.5, last > 40
+      p_drop: [0.022, 0.047, 0.108, 0.228, 0.402, 0.457, 0.526]
+      p_drop_background: 0.244                   # next to pixels without geometry (bin/floor not modelled)
+      source: "measured on [ROBI] Zigzag S4, results/robi/zigzag_s4_edge_steps.json"
+      verified: true

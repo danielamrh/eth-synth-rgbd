@@ -34,6 +34,10 @@ ROBI (Yang et al., IROS 2021, CC BY-NC-SA 4.0). The fetch script pulls only one 
 ```bash
 python scripts/robi_fetch.py --object Zigzag --scene 4
 python scripts/robi_d415_metal.py --object Zigzag --scene 4   # ~10 min, writes results/robi/
+python scripts/robi_blob_size.py --scene 4                     # dropout blob size (corr_px)
+python scripts/robi_edge_steps.py --scene 4 --step 2           # edge dropout vs depth step
+python scripts/robi_fetch.py --object Zigzag --scene 5         # holdout scene
+python scripts/robi_grasp_check.py --scene 5                   # planner on real vs simulated depth, ~6 min
 ```
 
 ### Grasp experiment
@@ -48,6 +52,7 @@ the first 20 scenes are stored in `results/grasp/<tag>/examples/`.
 ```bash
 python scripts/grasp_experiment.py --tag main      # 300 scenes x 16 runs, ~25 min on 6 cores
 python scripts/grasp_report.py --tag main          # table, results/grasp/main/summary.json, figures/grasp_main.png
+python scripts/grasp_experiment.py --tag clear6mm --clearance 0.006   # gripper sensitivity: 6 mm instead of 12 mm per side
 ```
 
 ## Layout

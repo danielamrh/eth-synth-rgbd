@@ -25,7 +25,7 @@ GROUPS = [
     ("D435 minus one effect", ["no_stereo_shadow", "no_metal_dropout", "no_edge_artifacts",
                                "no_metal_depth_error", "no_disparity_noise"]),
     ("Simpler noise models", ["iid_gauss", "z2_gauss", "dexnet"]),
-    ("Metal sensitivity", ["metal_x0.5", "metal_x2", "metal_corr0", "metal_corr6"]),
+    ("Metal sensitivity", ["metal_x0.5", "metal_x2", "metal_corr0", "metal_corr3.3", "metal_corr6.1"]),
 ]
 BLUE, ORANGE, INK, MUTED, GRID = "#2a78d6", "#eb6834", "#0b0b0b", "#52514e", "#e4e3df"
 
