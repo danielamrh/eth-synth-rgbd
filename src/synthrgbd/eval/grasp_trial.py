@@ -32,17 +32,21 @@ def _q(model, data, joint, value=None):
     return data.qpos[adr]
 
 
-def _run(model, data, seconds, ramp=None):
-    """Step for `seconds`; ramp = (actuator, start, end) interpolates its target linearly."""
+def _run(model, data, seconds, ramp=None, on_step=None):
+    """Step for `seconds`; ramp = (actuator, start, end) interpolates its target linearly.
+    on_step(model, data) is called after every step (used only to record videos)."""
     n = max(1, int(seconds / model.opt.timestep))
     for i in range(n):
         if ramp is not None:
             act, a, b = ramp
             _set(model, data, act, a + (b - a) * (i + 1) / n)
         mujoco.mj_step(model, data)
+        if on_step is not None:
+            on_step(model, data)
 
 
-def execute_grasp(model, data, settled_state: np.ndarray, scene: dict, grasp, p: dict = TRIAL) -> dict:
+def execute_grasp(model, data, settled_state: np.ndarray, scene: dict, grasp, p: dict = TRIAL,
+                  on_step=None) -> dict:
     """Run one trial from `settled_state` (mj state vector). Returns outcome and diagnostics."""
     spec = mujoco.mjtState.mjSTATE_INTEGRATION
     mujoco.mj_setState(model, data, settled_state, spec)
@@ -64,13 +68,13 @@ def execute_grasp(model, data, settled_state: np.ndarray, scene: dict, grasp, p:
     data.qvel[:] = 0
     mujoco.mj_forward(model, data)
 
-    _run(model, data, p["descend_s"], ("az", z_start, z_grasp))
-    _run(model, data, 0.1)
+    _run(model, data, p["descend_s"], ("az", z_start, z_grasp), on_step=on_step)
+    _run(model, data, 0.1, on_step=on_step)
     z_reached = _q(model, data, "gz") + PARK[2] - FINGER_LEN
-    _run(model, data, p["close_s"], ("agrip", half, -CLOSE_OVERSHOOT))
+    _run(model, data, p["close_s"], ("agrip", half, -CLOSE_OVERSHOOT), on_step=on_step)
     opening = 2 * _q(model, data, "fl")
-    _run(model, data, p["lift_s"], ("az", z_grasp, z_grasp + p["lift"]))
-    _run(model, data, p["hold_s"])
+    _run(model, data, p["lift_s"], ("az", z_grasp, z_grasp + p["lift"]), on_step=on_step)
+    _run(model, data, p["hold_s"], on_step=on_step)
 
     rise = data.xpos[bodies, 2] - z0
     lifted = rise > p["lift_success"]

@@ -25,7 +25,7 @@ def make_sensors(metal_ids):
     from synthrgbd.sensor.baselines import build_baselines
     from synthrgbd.sensor.d435 import build_d435
     full = build_d435(metal_ids)
-    s = {"ideal": None, "d435": full}
+    s = {"ideal": None, "d435": full, "d435_edge_const": build_d435(metal_ids, edge_by_step=False)}
     for name in full.names:
         s[f"no_{name}"] = full.without(name)
     s.update(build_baselines())

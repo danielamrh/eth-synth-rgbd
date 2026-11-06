@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 GROUPS = [
-    ("References", ["ideal", "d435"]),
+    ("References", ["ideal", "d435", "d435_edge_const"]),
     ("D435 minus one effect", ["no_stereo_shadow", "no_metal_dropout", "no_edge_artifacts",
                                "no_metal_depth_error", "no_disparity_noise"]),
     ("Simpler noise models", ["iid_gauss", "z2_gauss", "dexnet"]),

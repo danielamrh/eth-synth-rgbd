@@ -53,6 +53,9 @@ the first 20 scenes are stored in `results/grasp/<tag>/examples/`.
 python scripts/grasp_experiment.py --tag main      # 300 scenes x 16 runs, ~25 min on 6 cores
 python scripts/grasp_report.py --tag main          # table, results/grasp/main/summary.json, figures/grasp_main.png
 python scripts/grasp_experiment.py --tag clear6mm --clearance 0.006   # gripper sensitivity: 6 mm instead of 12 mm per side
+python scripts/grasp_sensitivity.py --tag main     # which model part matters (after grasp_report.py)
+python scripts/grasp_camera_pose.py --tag main     # camera-model gap vs camera distance and tilt
+pip install -e ".[video]" && python scripts/grasp_video.py --tag clear6mm --n 3   # videos/grasp_clear6mm.mp4
 ```
 
 ## Layout

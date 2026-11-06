@@ -116,8 +116,9 @@ effects:
     # depth-only clustering separate touching parts that stay merged in real depth). Measured with
     # scripts/robi_edge_steps.py on [ROBI] Zigzag S4, every 2nd view, band net of predicted shadow;
     # step = max - min of ideal depth in a 7x7 window. Holdout S5: 0.050 0.079 0.106 0.206 0.369 0.449 0.361, bg 0.321.
-    # use_by_step false keeps the constant p_drop above (model used for the grasp results so far).
-    use_by_step: false
+    # Default since 2026-11-06. use_by_step false = constant p_drop above (first model version; kept as
+    # condition d435_edge_const in the grasp experiment for comparison).
+    use_by_step: true
     p_drop_by_step:
       step_mm: [2.5, 5, 10, 15, 25, 40]          # bin edges; first bin 0-2.5, last > 40
       p_drop: [0.022, 0.047, 0.108, 0.228, 0.402, 0.457, 0.526]

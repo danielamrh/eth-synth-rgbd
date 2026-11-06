@@ -17,6 +17,7 @@ planner: {}
 conditions:
   - ideal
   - d435
+  - d435_edge_const  # first model version: constant edge dropout instead of depth-step dependent
   - no_stereo_shadow
   - no_metal_dropout
   - no_edge_artifacts
@@ -33,4 +34,4 @@ conditions:
 
 # Pipelines: "depth" clusters from depth only; "masks" uses ground-truth instance masks
 # (a perfect segmenter) and depth for geometry. Masks are run only on these conditions.
-mask_conditions: [ideal, d435]
+mask_conditions: [ideal, d435, d435_edge_const]

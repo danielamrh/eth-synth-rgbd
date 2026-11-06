@@ -53,7 +53,7 @@ from synthrgbd.sensor.d435 import _v, build_d435, load_config  # noqa: E402
 from synthrgbd.sensor.pipeline import SensorModel  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-CONDITIONS = ["real", "ideal", "sim", "sim_edge_step", "sim_no_metal_dropout", "sim_no_edge_artifacts",
+CONDITIONS = ["real", "ideal", "sim", "sim_edge_const", "sim_no_metal_dropout", "sim_no_edge_artifacts",
               "iid_gauss", "z2_gauss", "dexnet"]
 F_D435 = 424.0
 MIN_PX = 300        # parts with fewer visible pixels (planner resolution) are not scored
@@ -77,11 +77,11 @@ def _d415(B, f, corr_px, edge_by_step):
 
 
 def build_sensors(B, f, corr_px, z_ref):
-    sim = _d415(B, f, corr_px, edge_by_step=False)
+    sim = _d415(B, f, corr_px, edge_by_step=True)
     sigma_px = _v(load_config()["stereo"]["subpixel_rms_px"])
     dn = yaml.safe_load((ROOT / "configs" / "noise_baselines.yaml").read_text())["dexnet"]
     return {
-        "sim": sim, "sim_edge_step": _d415(B, f, corr_px, edge_by_step=True),
+        "sim": sim, "sim_edge_const": _d415(B, f, corr_px, edge_by_step=False),
         "sim_no_metal_dropout": sim.without("metal_dropout"),
         "sim_no_edge_artifacts": sim.without("edge_artifacts"),
         "iid_gauss": SensorModel([("iid_gauss", iid_gauss, {"sigma_m": z_ref ** 2 * sigma_px / (f * B)})]),
