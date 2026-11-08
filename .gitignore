@@ -10,4 +10,5 @@ figures/*.png
 report/*.aux
 report/*.log
 report/*.out
-Claude.md
+# local assistant notes
+CLAUDE.md

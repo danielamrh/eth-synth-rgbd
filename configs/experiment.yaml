@@ -1,8 +1,0 @@
-# Grasp experiment (filled in on Fri).
-n_scenes: 200
-seeds: [0, 1, 2]
-conditions:
-  ideal: {sensor: none}
-  full: {sensor: all}
-  # One ablation per effect: everything except that effect.
-  ablate_each: true
