@@ -1,0 +1,78 @@
+{
+ "camera distance": [
+  {
+   "lo": 0.35440262417285295,
+   "hi": 0.43820034847509653,
+   "n": 100,
+   "success_ideal": 0.99,
+   "success_no_edge_artifacts": 0.99,
+   "gap": 0.0,
+   "gap_ci": [
+    -0.03,
+    0.03
+   ]
+  },
+  {
+   "lo": 0.43820034847509653,
+   "hi": 0.5188072922404187,
+   "n": 100,
+   "success_ideal": 0.96,
+   "success_no_edge_artifacts": 0.95,
+   "gap": 0.01,
+   "gap_ci": [
+    0.0,
+    0.03
+   ]
+  },
+  {
+   "lo": 0.5188072922404187,
+   "hi": 0.5999818054480202,
+   "n": 100,
+   "success_ideal": 0.9,
+   "success_no_edge_artifacts": 0.89,
+   "gap": 0.01,
+   "gap_ci": [
+    -0.02,
+    0.04
+   ]
+  }
+ ],
+ "camera tilt from vertical": [
+  {
+   "lo": 0.04838945476121484,
+   "hi": 12.059719044747053,
+   "n": 100,
+   "success_ideal": 0.93,
+   "success_no_edge_artifacts": 0.92,
+   "gap": 0.01,
+   "gap_ci": [
+    0.0,
+    0.03
+   ]
+  },
+  {
+   "lo": 12.059719044747053,
+   "hi": 23.271765141419827,
+   "n": 100,
+   "success_ideal": 0.96,
+   "success_no_edge_artifacts": 0.94,
+   "gap": 0.02,
+   "gap_ci": [
+    -0.02,
+    0.06
+   ]
+  },
+  {
+   "lo": 23.271765141419827,
+   "hi": 34.83841027371043,
+   "n": 100,
+   "success_ideal": 0.96,
+   "success_no_edge_artifacts": 0.97,
+   "gap": -0.01,
+   "gap_ci": [
+    -0.03,
+    0.0
+   ]
+  }
+ ]
+}

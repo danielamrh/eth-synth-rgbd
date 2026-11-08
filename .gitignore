@@ -3,10 +3,10 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 .vscode/
-# generated data and results (regenerate with scripts/)
+# raw ROBI data (CC BY-NC-SA, fetched with scripts/robi_fetch.py, not redistributed)
 data/
-results/
-figures/*.png
+# run logs
+*.log
 report/*.aux
 report/*.log
 report/*.out

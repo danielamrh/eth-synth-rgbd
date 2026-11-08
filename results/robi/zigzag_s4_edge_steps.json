@@ -1,0 +1,58 @@
+{
+ "object": "Zigzag",
+ "scene": 4,
+ "n_views": 63,
+ "edge_px": 3,
+ "by_step": [
+  {
+   "step_lo_mm": 0.0,
+   "step_hi_mm": 2.5,
+   "n_px": 3691,
+   "invalid_rate": 0.02167434299647792
+  },
+  {
+   "step_lo_mm": 2.5,
+   "step_hi_mm": 5.0,
+   "n_px": 36034,
+   "invalid_rate": 0.046955652994394186
+  },
+  {
+   "step_lo_mm": 5.0,
+   "step_hi_mm": 10.0,
+   "n_px": 129205,
+   "invalid_rate": 0.10785186331798305
+  },
+  {
+   "step_lo_mm": 10.0,
+   "step_hi_mm": 15.0,
+   "n_px": 131443,
+   "invalid_rate": 0.22829667612577315
+  },
+  {
+   "step_lo_mm": 15.0,
+   "step_hi_mm": 25.0,
+   "n_px": 199120,
+   "invalid_rate": 0.4021394134190438
+  },
+  {
+   "step_lo_mm": 25.0,
+   "step_hi_mm": 40.0,
+   "n_px": 95087,
+   "invalid_rate": 0.4574968187028721
+  },
+  {
+   "step_lo_mm": 40.0,
+   "step_hi_mm": Infinity,
+   "n_px": 11851,
+   "invalid_rate": 0.5256096531938234
+  }
+ ],
+ "next_to_background": {
+  "n_px": 763726,
+  "invalid_rate": 0.2440692080667674
+ },
+ "all_band": {
+  "n_px": 1370157,
+  "invalid_rate": 0.2641463715472023
+ }
+}
